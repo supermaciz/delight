@@ -10,6 +10,7 @@ defmodule Delight.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      test_coverage: [tool: ExCoveralls],
       listeners: [Phoenix.CodeReloader]
     ]
   end
@@ -26,7 +27,7 @@ defmodule Delight.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "coveralls.json": :test]
     ]
   end
 
@@ -49,7 +50,8 @@ defmodule Delight.MixProject do
       {:jason, "~> 1.2"},
       {:req, "~> 0.6.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:excoveralls, "~> 0.18", only: :test}
     ]
   end
 
