@@ -6,3 +6,12 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
+  delight:
+    build: .
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: ecto://postgres:postgres@postgres/delight_dev
+      SECRET_KEY_BASE: O/RRXINlqJW3Wx7XJWSVwcQlcvWx/+uRY1VT0Zr1rCgxA3CEkOV+ahgGZ3UL+I0o
