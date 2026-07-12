@@ -48,7 +48,7 @@ defmodule Delight.DeezerAPI do
   end
 
   defp request!(url, options) do
-    response = Req.get!(url, Keyword.merge(deezer_api_options(), options))
+    response = Req.get!(url, Keyword.merge(req_options(), options))
 
     if response.status in 200..299 and not deezer_error?(response.body) do
       response
@@ -61,8 +61,10 @@ defmodule Delight.DeezerAPI do
     end
   end
 
-  defp deezer_api_options do
-    Application.get_env(:delight, :deezer_api_options, [])
+  defp req_options do
+    :delight
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:req_options, [])
   end
 
   defp deezer_error?(%{"error" => %{"code" => _code}}), do: true

@@ -23,7 +23,7 @@ config :delight, DelightWeb.Endpoint,
 # Print only warnings and errors during test
 config :logger, level: :warning
 
-config :delight, :deezer_api_options, plug: {Req.Test, Delight.DeezerAPI}
+config :delight, Delight.DeezerAPI, req_options: [plug: {Req.Test, Delight.DeezerAPI}]
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
