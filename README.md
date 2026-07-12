@@ -1,5 +1,8 @@
 # Delight
 
+[![Elixir CI](https://github.com/supermaciz/delight/actions/workflows/elixir.yml/badge.svg)](https://github.com/supermaciz/delight/actions/workflows/elixir.yml)
+[![codecov](https://codecov.io/gh/supermaciz/delight/graph/badge.svg)](https://codecov.io/gh/supermaciz/delight)
+
 To start your Phoenix server:
 
 * Run `mix setup` to install and setup dependencies
