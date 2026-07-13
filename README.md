@@ -15,6 +15,16 @@ subsequent requests are served from the database.
 
 ## Getting started
 
+The easiest way to start the application and PostgreSQL is with Docker Compose:
+
+```sh
+docker compose up
+```
+
+The API will be available at <http://localhost:4000>.
+
+Alternatively, run the application locally:
+
 ```sh
 mix setup          # install deps, create and migrate the database
 mix phx.server     # start the server on http://localhost:4000

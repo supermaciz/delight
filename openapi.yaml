@@ -46,7 +46,14 @@ paths:
                         release_date: "2001-03-07"
                         deezer_id: 302127
         "400":
-          description: Missing `name` parameter.
+          description: Missing or blank `name` parameter.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                errors:
+                  detail: Bad Request
         "404":
           description: No artist found for the given name.
           content:
@@ -56,6 +63,15 @@ paths:
               example:
                 errors:
                   detail: Not Found
+        "502":
+          description: The upstream Deezer API returned an error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                errors:
+                  detail: Bad Gateway
 
 components:
   schemas:
