@@ -52,18 +52,36 @@ defmodule Delight.Music do
   Homonyms are supported: several artists can share the same name while keeping
   distinct identities through their `deezer_id`.
 
-  When no matching artist exists locally, searches Deezer, keeps only the
-  results whose name matches exactly, and persists each of them with their
-  albums atomically. A Deezer API failure is returned as
-  `{:error, {:deezer_api, %DeezerAPI.Error{}}}`.
+  When no matching artist exists locally, or when the local copy is stale (its
+  `updated_at` is older than the configured `:albums_ttl_hours`), searches
+  Deezer, keeps only the results whose name matches exactly, and persists each
+  of them with their albums atomically. Re-syncing bumps the artist's
+  `updated_at` through the upsert, which resets the TTL, and prunes local albums
+  that Deezer no longer returns so the copy stays an exact mirror. A Deezer API
+  failure is returned as `{:error, {:deezer_api, %DeezerAPI.Error{}}}`.
   """
   def find_or_import_artists(artist_name) do
     artist_name = String.trim(artist_name)
 
     case list_artists_by_exact_name(artist_name) do
-      [] -> fetch_and_persist_artists(artist_name)
-      artists -> {:ok, artists}
+      [] ->
+        fetch_and_persist_artists(artist_name)
+
+      artists ->
+        if Enum.all?(artists, &fresh?/1),
+          do: {:ok, artists},
+          else: fetch_and_persist_artists(artist_name)
     end
+  end
+
+  defp fresh?(%Artist{updated_at: updated_at}) do
+    DateTime.diff(DateTime.utc_now(), updated_at, :hour) < albums_ttl_hours()
+  end
+
+  defp albums_ttl_hours do
+    :delight
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:albums_ttl_hours, 24)
   end
 
   defp list_artists_by_exact_name(""), do: []
@@ -110,7 +128,8 @@ defmodule Delight.Music do
     Repo.transaction(fn ->
       Enum.map(artists_with_albums, fn {name, deezer_id, albums} ->
         with {:ok, artist} <- insert_artist(name, deezer_id),
-             :ok <- insert_albums(artist, albums) do
+             :ok <- insert_albums(artist, albums),
+             :ok <- prune_albums(artist, albums) do
           Repo.preload(artist, :albums, force: true)
         else
           {:error, reason} -> Repo.rollback(reason)
@@ -153,6 +172,22 @@ defmodule Delight.Music do
   end
 
   defp insert_album(_artist, _album_data), do: {:error, :invalid_deezer_response}
+
+  # Removes the artist's local albums that Deezer no longer returns, so the
+  # local copy stays an exact mirror of Deezer's authoritative album list.
+  # `insert_albums/2` has already rejected any invalid entry (rolling back), so
+  # every album here carries an integer `deezer_id`. An empty Deezer response
+  # therefore prunes every album.
+  defp prune_albums(artist, albums) do
+    kept_ids = Enum.map(albums, & &1["id"])
+
+    Album
+    |> where([album], album.artist_id == ^artist.id)
+    |> where([album], album.deezer_id not in ^kept_ids)
+    |> Repo.delete_all()
+
+    :ok
+  end
 
   defp parse_release_date(release_date) when is_binary(release_date) do
     case Date.from_iso8601(release_date) do

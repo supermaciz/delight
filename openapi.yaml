@@ -18,6 +18,11 @@ paths:
         Searches for an artist by name and returns their albums (title +
         release date). Since several artists can share the same name
         (homonyms), the response is a list of artists.
+
+
+        Results are cached (24h by default), so an artist's albums may be up to
+        that old before newly released albums appear; albums removed from Deezer
+        likewise disappear on the next refresh.
       operationId: listArtistAlbums
       parameters:
         - name: name

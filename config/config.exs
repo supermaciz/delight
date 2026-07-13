@@ -11,6 +11,10 @@ config :delight,
   ecto_repos: [Delight.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# How long a persisted artist's albums are served from the local cache before
+# `Delight.Music.find_or_import_artists/1` re-syncs them from Deezer.
+config :delight, Delight.Music, albums_ttl_hours: 24
+
 # Configure the endpoint
 config :delight, DelightWeb.Endpoint,
   url: [host: "localhost"],

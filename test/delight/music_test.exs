@@ -31,6 +31,77 @@ defmodule Delight.MusicTest do
       assert persisted_album.id == album.id
     end
 
+    test "re-syncs a stale artist from Deezer and picks up newly released albums" do
+      {:ok, artist} = Music.create_artist(%{name: "Daft Punk", deezer_id: 27})
+
+      artist
+      |> Ecto.build_assoc(:albums)
+      |> Music.Album.changeset(%{title: "Homework", release_date: ~D[1997-01-20], deezer_id: 1})
+      |> Repo.insert!()
+
+      # Push the artist past the TTL so the next lookup refreshes from Deezer.
+      stale = DateTime.add(DateTime.utc_now(), -48, :hour) |> DateTime.truncate(:second)
+      Repo.update_all(Artist, set: [updated_at: stale])
+
+      Req.Test.stub(DeezerAPI, fn conn ->
+        case conn.request_path do
+          "/search/artist" ->
+            Req.Test.json(conn, %{"data" => [%{"id" => 27, "name" => "Daft Punk"}]})
+
+          "/artist/27/albums" ->
+            Req.Test.json(conn, %{
+              "data" => [
+                %{"id" => 1, "title" => "Homework", "release_date" => "1997-01-20"},
+                %{"id" => 3, "title" => "Random Access Memories", "release_date" => "2013-05-17"}
+              ]
+            })
+        end
+      end)
+
+      assert {:ok, [%Artist{id: artist_id, albums: albums} = refreshed]} =
+               Music.find_or_import_artists("Daft Punk")
+
+      assert artist_id == artist.id
+      assert Enum.map(albums, & &1.title) |> Enum.sort() == ["Homework", "Random Access Memories"]
+      assert DateTime.compare(refreshed.updated_at, stale) == :gt
+      assert Repo.aggregate(Artist, :count) == 1
+    end
+
+    test "prunes local albums that Deezer no longer returns on re-sync" do
+      {:ok, artist} = Music.create_artist(%{name: "Daft Punk", deezer_id: 27})
+
+      for {title, deezer_id} <- [{"Homework", 1}, {"Discovery", 2}] do
+        artist
+        |> Ecto.build_assoc(:albums)
+        |> Music.Album.changeset(%{
+          title: title,
+          release_date: ~D[2001-03-12],
+          deezer_id: deezer_id
+        })
+        |> Repo.insert!()
+      end
+
+      stale = DateTime.add(DateTime.utc_now(), -48, :hour) |> DateTime.truncate(:second)
+      Repo.update_all(Artist, set: [updated_at: stale])
+
+      # Deezer no longer lists "Discovery" (deezer_id 2).
+      Req.Test.stub(DeezerAPI, fn conn ->
+        case conn.request_path do
+          "/search/artist" ->
+            Req.Test.json(conn, %{"data" => [%{"id" => 27, "name" => "Daft Punk"}]})
+
+          "/artist/27/albums" ->
+            Req.Test.json(conn, %{
+              "data" => [%{"id" => 1, "title" => "Homework", "release_date" => "1997-01-20"}]
+            })
+        end
+      end)
+
+      assert {:ok, [%Artist{albums: [album]}]} = Music.find_or_import_artists("Daft Punk")
+      assert album.title == "Homework"
+      assert Repo.aggregate(Music.Album, :count) == 1
+    end
+
     test "returns every local homonym ordered by deezer_id" do
       {:ok, first} = Music.create_artist(%{name: "John Williams", deezer_id: 52})
       {:ok, second} = Music.create_artist(%{name: "John Williams", deezer_id: 991})

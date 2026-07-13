@@ -8,6 +8,12 @@ albums. On the first request for an artist, the data is fetched from Deezer and
 persisted in Postgres (name, Deezer ID, and albums with their release dates);
 subsequent requests are served from the database.
 
+The database acts as a time-limited cache: a persisted artist is served locally
+until it goes stale (its `updated_at` is older than `:albums_ttl_hours`, 24h by
+default — see `config/config.exs`), after which the next request re-syncs the
+artist from Deezer: it picks up albums released in the meantime and drops any
+album Deezer no longer lists, keeping the local copy an exact mirror.
+
 ## Requirements
 
 * Elixir / Erlang (see `.tool-versions` or `mix.exs` for versions)
