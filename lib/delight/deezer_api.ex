@@ -1,4 +1,8 @@
 defmodule Delight.DeezerAPI do
+  @moduledoc """
+  Deezer API client
+  """
+
   defmodule Error do
     @moduledoc """
     Deezer API error

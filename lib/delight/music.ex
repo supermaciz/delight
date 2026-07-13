@@ -1,6 +1,11 @@
 defmodule Delight.Music do
   @moduledoc """
-  The Music context.
+  Manages artists and albums stored in DB.
+
+  The local database acts as a time-limited cache over Deezer: stale or missing
+  artists are re-fetched and synchronized in a single transaction. The cache
+  lifetime is set with `:albums_ttl_hours` in this module's application
+  environment (default 24 hours).
   """
 
   import Ecto.Query, warn: false
