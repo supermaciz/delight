@@ -26,7 +26,9 @@ defmodule Delight.DeezerAPI do
   @base_url "https://api.deezer.com"
 
   @doc """
-  https://api.deezer.com/search/artist?q=eminem
+  Searches Deezer for artists matching the given name.
+
+  Returns all results across every page of the Deezer response.
   """
   @spec search_artist_by_name!(artist_name :: String.t()) :: [map]
   def search_artist_by_name!(artist_name) do
@@ -34,7 +36,9 @@ defmodule Delight.DeezerAPI do
   end
 
   @doc """
-  https://api.deezer.com/artist/27/albums
+  Fetches all albums for the artist identified by its Deezer ID.
+
+  Returns all results across every page of the Deezer response.
   """
   @spec get_artist_albums!(deezer_artist_id :: integer()) :: [map]
   def get_artist_albums!(deezer_artist_id) do
