@@ -14,6 +14,10 @@ default — see `config/config.exs`), after which the next request re-syncs the
 artist from Deezer: it picks up albums released in the meantime and drops any
 album Deezer no longer lists, keeping the local copy an exact mirror.
 
+The API is left without rate limiting: the right way to enforce it depends on
+the use case: per-user quotas behind authentication, per-IP throttling for
+anonymous traffic, or an upstream API gateway.
+
 ## Requirements
 
 * Elixir / Erlang (see `.tool-versions` or `mix.exs` for versions)
@@ -79,11 +83,3 @@ into <https://editor.swagger.io> to browse it).
 ```sh
 mix test
 ```
-
-## Learn more
-
-* Official website: https://www.phoenixframework.org/
-* Guides: https://phoenix.hexdocs.pm/overview.html
-* Docs: https://phoenix.hexdocs.pm
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
