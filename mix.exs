@@ -27,7 +27,7 @@ defmodule Delight.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test, "coveralls.json": :test]
+      preferred_envs: [precommit: :test, "coveralls.json": :test, "coveralls.html": :test]
     ]
   end
 
