@@ -95,6 +95,17 @@ defmodule Delight.Music do
 
     Artist
     |> where([artist], fragment("lower(?)", artist.name) == ^normalized_name)
+    |> list_artists_with_albums()
+  end
+
+  defp list_artists_by_deezer_ids(deezer_ids) do
+    Artist
+    |> where([artist], artist.deezer_id in ^deezer_ids)
+    |> list_artists_with_albums()
+  end
+
+  defp list_artists_with_albums(query) do
+    query
     |> order_by([artist], asc: artist.deezer_id)
     |> preload(:albums)
     |> Repo.all()
@@ -114,8 +125,14 @@ defmodule Delight.Music do
       end)
 
     case artists_with_albums do
-      [] -> {:error, :not_found}
-      artists -> persist_artists(artists)
+      [] ->
+        {:error, :not_found}
+
+      artists ->
+        with :ok <- persist_artists(artists) do
+          deezer_ids = Enum.map(artists, fn {_name, deezer_id, _albums} -> deezer_id end)
+          {:ok, list_artists_by_deezer_ids(deezer_ids)}
+        end
     end
   rescue
     error in DeezerAPI.Error -> {:error, error}
@@ -130,16 +147,20 @@ defmodule Delight.Music do
 
   defp persist_artists(artists_with_albums) do
     Repo.transaction(fn ->
-      Enum.map(artists_with_albums, fn {name, deezer_id, albums} ->
+      Enum.each(artists_with_albums, fn {name, deezer_id, albums} ->
         with {:ok, artist} <- insert_artist(name, deezer_id),
              :ok <- insert_albums(artist, albums),
              :ok <- prune_albums(artist, albums) do
-          Repo.preload(artist, :albums, force: true)
+          :ok
         else
           {:error, reason} -> Repo.rollback(reason)
         end
       end)
     end)
+    |> case do
+      {:ok, :ok} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp insert_artist(name, deezer_id) do
