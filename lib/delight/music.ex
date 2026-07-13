@@ -65,16 +65,21 @@ defmodule Delight.Music do
              | Ecto.Changeset.t()
              | %DeezerAPI.Error{}}
   def find_or_import_artists(artist_name) do
-    artist_name = String.trim(artist_name)
+    case artist_name |> String.trim() |> String.downcase() do
+      "" -> {:error, :invalid_artist_name}
+      normalized_name -> find_or_import_by_normalized_name(normalized_name)
+    end
+  end
 
-    case list_artists_by_exact_name(artist_name) do
+  defp find_or_import_by_normalized_name(normalized_name) do
+    case list_artists_by_normalized_name(normalized_name) do
       [] ->
-        fetch_and_persist_artists(artist_name)
+        fetch_and_persist_artists(normalized_name)
 
       artists ->
         if Enum.all?(artists, &fresh?/1),
           do: {:ok, artists},
-          else: fetch_and_persist_artists(artist_name)
+          else: fetch_and_persist_artists(normalized_name)
     end
   end
 
@@ -88,11 +93,7 @@ defmodule Delight.Music do
     |> Keyword.get(:albums_ttl_hours, 24)
   end
 
-  defp list_artists_by_exact_name(""), do: []
-
-  defp list_artists_by_exact_name(artist_name) do
-    normalized_name = String.downcase(artist_name)
-
+  defp list_artists_by_normalized_name(normalized_name) do
     Artist
     |> where([artist], fragment("lower(?)", artist.name) == ^normalized_name)
     |> list_artists_with_albums()
@@ -111,13 +112,10 @@ defmodule Delight.Music do
     |> Repo.all()
   end
 
-  defp fetch_and_persist_artists(""), do: {:error, :invalid_artist_name}
-
-  defp fetch_and_persist_artists(artist_name) do
-    normalized_name = String.downcase(artist_name)
-
+  # Deezer's artist search is case-insensitive
+  defp fetch_and_persist_artists(normalized_name) do
     artists_with_albums =
-      artist_name
+      normalized_name
       |> DeezerAPI.search_artist_by_name!()
       |> Enum.filter(&exact_name_match?(&1, normalized_name))
       |> Enum.map(fn %{"id" => deezer_id, "name" => name} ->
