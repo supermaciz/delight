@@ -7,6 +7,8 @@ defmodule DelightWeb.Router do
 
   scope "/api", DelightWeb do
     pipe_through :api
+
+    get "/artists/albums", ArtistController, :albums
   end
 
   # Enable LiveDashboard in development

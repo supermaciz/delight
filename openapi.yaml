@@ -1,0 +1,114 @@
+openapi: 3.0.3
+info:
+  title: Delight API
+  description: >
+    REST wrapper around Deezer's public Web API.
+    Returns the list of albums for a given artist name.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:4000/api
+    description: Local development server
+
+paths:
+  /artists/albums:
+    get:
+      summary: List an artist's albums
+      description: >
+        Searches for an artist by name and returns their albums (title +
+        release date). Since several artists can share the same name
+        (homonyms), the response is a list of artists.
+      operationId: listArtistAlbums
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Name of the artist to search for.
+          schema:
+            type: string
+          example: Daft Punk
+      responses:
+        "200":
+          description: Matching artist(s) with their albums.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtistsResponse"
+              example:
+                data:
+                  - name: Daft Punk
+                    deezer_id: 27
+                    albums:
+                      - title: Random Access Memories
+                        release_date: "2013-05-17"
+                        deezer_id: 6575789
+                      - title: Discovery
+                        release_date: "2001-03-07"
+                        deezer_id: 302127
+        "400":
+          description: Missing `name` parameter.
+        "404":
+          description: No artist found for the given name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                errors:
+                  detail: Not Found
+
+components:
+  schemas:
+    ArtistsResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Artist"
+
+    Artist:
+      type: object
+      required: [name, deezer_id, albums]
+      properties:
+        name:
+          type: string
+          example: Daft Punk
+        deezer_id:
+          type: integer
+          format: int64
+          description: Artist identifier on Deezer.
+          example: 27
+        albums:
+          type: array
+          items:
+            $ref: "#/components/schemas/Album"
+
+    Album:
+      type: object
+      required: [title, release_date, deezer_id]
+      properties:
+        title:
+          type: string
+          example: Random Access Memories
+        release_date:
+          type: string
+          format: date
+          description: Album release date.
+          example: "2013-05-17"
+        deezer_id:
+          type: integer
+          format: int64
+          description: Album identifier on Deezer.
+          example: 6575789
+
+    Error:
+      type: object
+      properties:
+        errors:
+          type: object
+          properties:
+            detail:
+              type: string
+              example: Not Found
