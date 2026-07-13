@@ -23,7 +23,7 @@ defmodule DelightWeb.FallbackController do
   end
 
   # Deezer is an upstream dependency: surface its failures as 502 Bad Gateway.
-  def call(conn, {:error, {:deezer_api, _error}}) do
+  def call(conn, {:error, %Delight.DeezerAPI.Error{}}) do
     conn
     |> put_status(:bad_gateway)
     |> put_view(html: DelightWeb.ErrorHTML, json: DelightWeb.ErrorJSON)

@@ -229,14 +229,14 @@ defmodule Delight.MusicTest do
       assert Repo.aggregate(Artist, :count) == 0
     end
 
-    test "returns a tagged error when Deezer fails" do
+    test "returns the Deezer error when Deezer fails" do
       Req.Test.stub(DeezerAPI, fn conn ->
         Req.Test.json(conn, %{
           "error" => %{"code" => 800, "type" => "DataException", "message" => "failure"}
         })
       end)
 
-      assert {:error, {:deezer_api, %DeezerAPI.Error{deezer_code: 800}}} =
+      assert {:error, %DeezerAPI.Error{deezer_code: 800}} =
                Music.find_or_import_artists("unknown")
     end
 

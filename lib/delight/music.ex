@@ -52,19 +52,18 @@ defmodule Delight.Music do
   end
 
   @doc """
-  Returns every artist matching `artist_name` (case-insensitive) with their albums.
+  Finds every case-insensitive exact artist-name match with its albums.
 
-  Homonyms are supported: several artists can share the same name while keeping
-  distinct identities through their `deezer_id`.
-
-  When no matching artist exists locally, or when the local copy is stale (its
-  `updated_at` is older than the configured `:albums_ttl_hours`), searches
-  Deezer, keeps only the results whose name matches exactly, and persists each
-  of them with their albums atomically. Re-syncing bumps the artist's
-  `updated_at` through the upsert, which resets the TTL, and prunes local albums
-  that Deezer no longer returns so the copy stays an exact mirror. A Deezer API
-  failure is returned as `{:error, {:deezer_api, %DeezerAPI.Error{}}}`.
+  Fresh results come from the local database. Missing or stale results are
+  synchronized atomically from Deezer. Homonyms remain distinct by `deezer_id`.
   """
+  @spec find_or_import_artists(String.t()) ::
+          {:ok, [%Artist{}]}
+          | {:error,
+             :invalid_artist_name
+             | :not_found
+             | Ecto.Changeset.t()
+             | %DeezerAPI.Error{}}
   def find_or_import_artists(artist_name) do
     artist_name = String.trim(artist_name)
 
@@ -119,7 +118,7 @@ defmodule Delight.Music do
       artists -> persist_artists(artists)
     end
   rescue
-    error in DeezerAPI.Error -> {:error, {:deezer_api, error}}
+    error in DeezerAPI.Error -> {:error, error}
   end
 
   defp exact_name_match?(%{"id" => _id, "name" => name}, normalized_name)
