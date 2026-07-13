@@ -149,29 +149,73 @@ defmodule Delight.Music do
   end
 
   defp insert_albums(artist, albums) do
-    Enum.reduce_while(albums, :ok, fn album_data, :ok ->
-      case insert_album(artist, album_data) do
-        {:ok, _album} -> {:cont, :ok}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
+    with {:ok, entries} <- build_album_entries(artist, albums) do
+      bulk_upsert_albums(entries)
+    end
   end
 
-  defp insert_album(artist, %{"id" => deezer_id, "title" => title} = album_data) do
-    artist
-    |> Ecto.build_assoc(:albums)
-    |> Album.changeset(%{
-      title: title,
-      deezer_id: deezer_id,
-      release_date: parse_release_date(album_data["release_date"])
-    })
-    |> Repo.insert(
+  defp build_album_entries(artist, albums) do
+    Enum.reduce_while(albums, {:ok, %{}}, fn album_data, {:ok, entries_by_deezer_id} ->
+      case build_album_entry(artist, album_data) do
+        {:ok, entry} ->
+          {:cont, {:ok, Map.put(entries_by_deezer_id, entry.deezer_id, entry)}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, entries_by_deezer_id} -> {:ok, Map.values(entries_by_deezer_id)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp build_album_entry(artist, %{"id" => deezer_id, "title" => title} = album_data) do
+    changeset =
+      artist
+      |> Ecto.build_assoc(:albums)
+      |> Album.changeset(%{
+        title: title,
+        deezer_id: deezer_id,
+        release_date: parse_release_date(album_data["release_date"])
+      })
+
+    case Ecto.Changeset.apply_action(changeset, :insert) do
+      {:ok, album} ->
+        {:ok,
+         %{
+           title: album.title,
+           deezer_id: album.deezer_id,
+           release_date: album.release_date,
+           artist_id: album.artist_id
+         }}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  defp build_album_entry(_artist, _album_data), do: {:error, :invalid_deezer_response}
+
+  defp bulk_upsert_albums([]), do: :ok
+
+  defp bulk_upsert_albums(entries) do
+    timestamp = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    entries =
+      Enum.map(entries, fn entry ->
+        Map.merge(entry, %{inserted_at: timestamp, updated_at: timestamp})
+      end)
+
+    Repo.insert_all(
+      Album,
+      entries,
       on_conflict: {:replace, [:title, :release_date, :artist_id, :updated_at]},
       conflict_target: :deezer_id
     )
-  end
 
-  defp insert_album(_artist, _album_data), do: {:error, :invalid_deezer_response}
+    :ok
+  end
 
   # Removes the artist's local albums that Deezer no longer returns, so the
   # local copy stays an exact mirror of Deezer's authoritative album list.

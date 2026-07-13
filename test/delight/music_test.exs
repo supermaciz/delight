@@ -155,6 +155,27 @@ defmodule Delight.MusicTest do
       assert Repo.aggregate(Music.Album, :count) == 2
     end
 
+    test "rejects the whole import when an album is invalid" do
+      Req.Test.stub(DeezerAPI, fn conn ->
+        case conn.request_path do
+          "/search/artist" ->
+            Req.Test.json(conn, %{"data" => [%{"id" => 27, "name" => "Daft Punk"}]})
+
+          "/artist/27/albums" ->
+            Req.Test.json(conn, %{
+              "data" => [
+                %{"id" => 1, "title" => "Homework", "release_date" => "1997-01-20"},
+                %{"id" => 2, "title" => "Discovery", "release_date" => "invalid"}
+              ]
+            })
+        end
+      end)
+
+      assert {:error, %Ecto.Changeset{}} = Music.find_or_import_artists("Daft Punk")
+      assert Repo.aggregate(Artist, :count) == 0
+      assert Repo.aggregate(Music.Album, :count) == 0
+    end
+
     test "imports every homonym returned by Deezer" do
       Req.Test.stub(DeezerAPI, fn conn ->
         case conn.request_path do
