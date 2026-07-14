@@ -7,6 +7,8 @@ defmodule Delight.Application do
 
   @impl true
   def start(_type, _args) do
+    Delight.HTTPLogger.attach()
+
     children = [
       DelightWeb.Telemetry,
       Delight.Repo,
