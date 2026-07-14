@@ -70,7 +70,7 @@ defmodule Delight.DeezerAPI do
   end
 
   defp request!(url, options) do
-    case RateLimiter.await_slot() do
+    case RateLimiter.consume() do
       :ok ->
         :ok
 

@@ -14,13 +14,18 @@ defmodule Delight.DeezerAPI.RateLimiter do
   @default_timeout :timer.seconds(5)
 
   @doc """
-  Claims a slot in the shared bucket, waiting for it to refill if it is empty.
+  Spends one token from the shared bucket, granting the caller the right to
+  issue a single Deezer request.
 
-  Blocks the calling process until a token is available and gives up after
-  `:timeout` milliseconds, which defaults to the configured `:timeout` (5s).
+  Returns immediately while the bucket holds tokens. Once it runs dry, blocks
+  the calling process until it refills and gives up after `:timeout`
+  milliseconds, which defaults to the configured `:timeout` (5s).
+
+  Tokens are never handed back: they only reappear at the refill rate, so call
+  this once per outgoing request.
   """
-  @spec await_slot(keyword()) :: :ok | {:error, {:rate_limited, non_neg_integer()}}
-  def await_slot(options \\ []) do
+  @spec consume(keyword()) :: :ok | {:error, {:rate_limited, non_neg_integer()}}
+  def consume(options \\ []) do
     config = Application.get_env(:delight, __MODULE__, [])
 
     bucket = %{
@@ -34,7 +39,7 @@ defmodule Delight.DeezerAPI.RateLimiter do
         Keyword.get(config, :timeout, @default_timeout)
       end)
 
-    await_slot_within(bucket, timeout)
+    consume_within(bucket, timeout)
   end
 
   @doc """
@@ -49,7 +54,7 @@ defmodule Delight.DeezerAPI.RateLimiter do
     :ok
   end
 
-  defp await_slot_within(bucket, timeout) do
+  defp consume_within(bucket, timeout) do
     case hit(@bucket_key, bucket.refill_rate, bucket.capacity, bucket.cost) do
       {:allow, _tokens_remaining} ->
         :ok
@@ -57,7 +62,7 @@ defmodule Delight.DeezerAPI.RateLimiter do
       # A denied hit spends no token, so retrying costs the quota nothing.
       {:deny, retry_after_ms} when retry_after_ms <= timeout ->
         Process.sleep(retry_after_ms)
-        await_slot_within(bucket, timeout - retry_after_ms)
+        consume_within(bucket, timeout - retry_after_ms)
 
       {:deny, retry_after_ms} ->
         {:error, {:rate_limited, retry_after_ms}}

@@ -19,25 +19,25 @@ defmodule Delight.DeezerAPI.RateLimiterTest do
   end
 
   test "allows a burst up to the bucket capacity" do
-    assert :ok = RateLimiter.await_slot(timeout: 0)
-    assert :ok = RateLimiter.await_slot(timeout: 0)
+    assert :ok = RateLimiter.consume(timeout: 0)
+    assert :ok = RateLimiter.consume(timeout: 0)
   end
 
   test "denies when the bucket is empty" do
-    assert :ok = RateLimiter.await_slot(timeout: 0)
-    assert :ok = RateLimiter.await_slot(timeout: 0)
+    assert :ok = RateLimiter.consume(timeout: 0)
+    assert :ok = RateLimiter.consume(timeout: 0)
 
-    assert {:error, {:rate_limited, retry_after_ms}} = RateLimiter.await_slot(timeout: 0)
+    assert {:error, {:rate_limited, retry_after_ms}} = RateLimiter.consume(timeout: 0)
 
     assert retry_after_ms > 0
   end
 
   test "waits for the bucket to refill instead of denying" do
-    assert :ok = RateLimiter.await_slot(timeout: 0)
-    assert :ok = RateLimiter.await_slot(timeout: 0)
+    assert :ok = RateLimiter.consume(timeout: 0)
+    assert :ok = RateLimiter.consume(timeout: 0)
 
     # One token per second: the third caller gets through once it has waited.
-    assert :ok = RateLimiter.await_slot(timeout: :timer.seconds(3))
+    assert :ok = RateLimiter.consume(timeout: :timer.seconds(3))
   end
 
   describe "Delight.DeezerAPI" do
