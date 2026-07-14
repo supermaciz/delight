@@ -3,6 +3,7 @@ defmodule DelightWeb.ArtistControllerTest do
 
   import Delight.MusicFixtures
   alias Delight.DeezerAPI
+  alias Delight.DeezerAPI.RateLimiter
   alias Delight.Music.Album
   alias Delight.Repo
 
@@ -68,6 +69,32 @@ defmodule DelightWeb.ArtistControllerTest do
       conn = get(conn, ~p"/api/artists/albums?name=Unknown")
 
       assert json_response(conn, 502) == %{"errors" => %{"detail" => "Bad Gateway"}}
+    end
+
+    test "returns 429 when our Deezer quota is exhausted", %{conn: conn} do
+      Req.Test.stub(DeezerAPI, fn _conn -> flunk("Deezer should not be called") end)
+
+      previous_config = Application.get_env(:delight, RateLimiter)
+
+      Application.put_env(:delight, RateLimiter,
+        scale: :timer.seconds(5),
+        limit: 1,
+        timeout: 0
+      )
+
+      RateLimiter.reset()
+      assert :ok = RateLimiter.await_slot(timeout: 0)
+
+      on_exit(fn ->
+        Application.put_env(:delight, RateLimiter, previous_config)
+        RateLimiter.reset()
+      end)
+
+      conn = get(conn, ~p"/api/artists/albums?name=Daft Punk")
+
+      assert json_response(conn, 429) == %{"errors" => %{"detail" => "Too Many Requests"}}
+      assert [retry_after] = get_resp_header(conn, "retry-after")
+      assert String.to_integer(retry_after) > 0
     end
   end
 end

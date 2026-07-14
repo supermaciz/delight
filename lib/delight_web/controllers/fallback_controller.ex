@@ -30,6 +30,15 @@ defmodule DelightWeb.FallbackController do
     |> render(:"502")
   end
 
+  # Our own quota for outgoing Deezer calls is exhausted: ask the client to back off.
+  def call(conn, {:error, %Delight.DeezerAPI.RateLimitError{} = error}) do
+    conn
+    |> put_resp_header("retry-after", to_string(ceil(error.retry_after_ms / 1000)))
+    |> put_status(:too_many_requests)
+    |> put_view(html: DelightWeb.ErrorHTML, json: DelightWeb.ErrorJSON)
+    |> render(:"429")
+  end
+
   # This clause is an example of how to handle resources that cannot be found.
   def call(conn, {:error, :not_found}) do
     conn

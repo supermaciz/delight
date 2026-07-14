@@ -25,6 +25,12 @@ config :logger, level: :warning
 
 config :delight, Delight.DeezerAPI, req_options: [plug: {Req.Test, Delight.DeezerAPI}]
 
+# The window is global: leave it wide open so it never throttles unrelated
+# tests. Tests that exercise throttling narrow it themselves.
+config :delight, Delight.DeezerAPI.RateLimiter,
+  scale: :timer.seconds(1),
+  limit: 100_000
+
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
 

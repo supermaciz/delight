@@ -23,6 +23,20 @@ defmodule Delight.DeezerAPI do
     defp api_error_message(_), do: ""
   end
 
+  defmodule RateLimitError do
+    @moduledoc """
+    No capacity could be claimed from `Delight.DeezerAPI.RateLimiter` in time: the
+    request was never sent to Deezer.
+    """
+    defexception [:retry_after_ms]
+
+    def message(error) do
+      "Deezer API rate limit reached. Retry after #{error.retry_after_ms}ms."
+    end
+  end
+
+  alias Delight.DeezerAPI.RateLimiter
+
   @base_url "https://api.deezer.com"
 
   @doc """
@@ -56,6 +70,14 @@ defmodule Delight.DeezerAPI do
   end
 
   defp request!(url, options) do
+    case RateLimiter.await_slot() do
+      :ok ->
+        :ok
+
+      {:error, {:rate_limited, retry_after_ms}} ->
+        raise RateLimitError, retry_after_ms: retry_after_ms
+    end
+
     response = Req.get!(url, Keyword.merge(req_options(), options))
 
     if response.status in 200..299 and not deezer_error?(response.body) do

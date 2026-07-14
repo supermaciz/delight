@@ -63,7 +63,8 @@ defmodule Delight.Music do
              :invalid_artist_name
              | :not_found
              | Ecto.Changeset.t()
-             | %DeezerAPI.Error{}}
+             | %DeezerAPI.Error{}
+             | %DeezerAPI.RateLimitError{}}
   def find_or_import_artists(artist_name) do
     case artist_name |> String.trim() |> String.downcase() do
       "" -> {:error, :invalid_artist_name}
@@ -133,7 +134,7 @@ defmodule Delight.Music do
         end
     end
   rescue
-    error in DeezerAPI.Error -> {:error, error}
+    error in [DeezerAPI.Error, DeezerAPI.RateLimitError] -> {:error, error}
   end
 
   defp exact_name_match?(%{"id" => _id, "name" => name}, normalized_name)

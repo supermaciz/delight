@@ -14,6 +14,7 @@ defmodule Delight.Application do
       {Phoenix.PubSub, name: Delight.PubSub},
       # Start a worker by calling: Delight.Worker.start_link(arg)
       # {Delight.Worker, arg},
+      {Delight.DeezerAPI.RateLimiter, clean_period: :timer.minutes(1)},
       # Start to serve requests, typically the last entry
       DelightWeb.Endpoint
     ]

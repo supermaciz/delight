@@ -14,9 +14,10 @@ default — see `config/config.exs`), after which the next request re-syncs the
 artist from Deezer: it picks up albums released in the meantime and drops any
 album Deezer no longer lists, keeping the local copy an exact mirror.
 
-The API is left without rate limiting: the right way to enforce it depends on
-the use case: per-user quotas behind authentication, per-IP throttling for
-anonymous traffic, or an upstream API gateway.
+Deezer throttles per IP address, so outgoing calls go through a shared sliding
+window (`Delight.DeezerAPI.RateLimiter`): at most 50 requests in any five-second
+period — see `config/config.exs`. A caller waits for the window to have capacity,
+and gives up after `:timeout` with a `429 Too Many Requests`.
 
 ## Requirements
 

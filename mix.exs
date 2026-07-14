@@ -51,7 +51,8 @@ defmodule Delight.MixProject do
       {:req, "~> 0.6.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
-      {:excoveralls, "~> 0.18", only: :test}
+      {:excoveralls, "~> 0.18", only: :test},
+      {:hammer, "~> 7.0"}
     ]
   end
 
