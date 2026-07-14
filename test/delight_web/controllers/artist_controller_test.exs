@@ -76,14 +76,15 @@ defmodule DelightWeb.ArtistControllerTest do
 
       previous_config = Application.get_env(:delight, RateLimiter)
 
+      # A request costs more than the bucket can ever hold: it is always denied.
       Application.put_env(:delight, RateLimiter,
-        scale: :timer.seconds(5),
-        limit: 1,
+        refill_rate: 1,
+        capacity: 1,
+        cost: 2,
         timeout: 0
       )
 
       RateLimiter.reset()
-      assert :ok = RateLimiter.await_slot(timeout: 0)
 
       on_exit(fn ->
         Application.put_env(:delight, RateLimiter, previous_config)

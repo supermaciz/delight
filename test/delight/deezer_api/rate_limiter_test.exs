@@ -7,7 +7,7 @@ defmodule Delight.DeezerAPI.RateLimiterTest do
   setup do
     previous_config = Application.get_env(:delight, RateLimiter)
 
-    Application.put_env(:delight, RateLimiter, scale: :timer.seconds(1), limit: 2)
+    Application.put_env(:delight, RateLimiter, refill_rate: 1, capacity: 2, cost: 1)
     RateLimiter.reset()
 
     on_exit(fn ->
@@ -18,12 +18,12 @@ defmodule Delight.DeezerAPI.RateLimiterTest do
     :ok
   end
 
-  test "allows requests while the window has capacity" do
+  test "allows a burst up to the bucket capacity" do
     assert :ok = RateLimiter.await_slot(timeout: 0)
     assert :ok = RateLimiter.await_slot(timeout: 0)
   end
 
-  test "denies when the window is full" do
+  test "denies when the bucket is empty" do
     assert :ok = RateLimiter.await_slot(timeout: 0)
     assert :ok = RateLimiter.await_slot(timeout: 0)
 
@@ -32,39 +32,27 @@ defmodule Delight.DeezerAPI.RateLimiterTest do
     assert retry_after_ms > 0
   end
 
-  test "waits for the window to have capacity instead of denying" do
+  test "waits for the bucket to refill instead of denying" do
     assert :ok = RateLimiter.await_slot(timeout: 0)
     assert :ok = RateLimiter.await_slot(timeout: 0)
 
-    # The third caller gets through once the one-second window has moved on.
+    # One token per second: the third caller gets through once it has waited.
     assert :ok = RateLimiter.await_slot(timeout: :timer.seconds(3))
   end
 
-  test "does not admit more than 50 requests in a five-second window" do
-    Application.put_env(:delight, RateLimiter, scale: :timer.seconds(5), limit: 50)
-    RateLimiter.reset()
-
-    for _request <- 1..50 do
-      assert :ok = RateLimiter.await_slot(timeout: 0)
-    end
-
-    assert {:error, {:rate_limited, retry_after_ms}} = RateLimiter.await_slot(timeout: 0)
-    assert retry_after_ms > 0
-  end
-
   describe "Delight.DeezerAPI" do
-    test "raises without calling Deezer once the window stays full" do
+    test "raises without calling Deezer once the bucket stays empty" do
       Req.Test.stub(DeezerAPI, fn _conn ->
         flunk("Deezer must not be called while rate limited")
       end)
 
+      # A request costs more than the bucket can ever hold: it is always denied.
       Application.put_env(:delight, RateLimiter,
-        scale: :timer.seconds(5),
-        limit: 1,
+        refill_rate: 1,
+        capacity: 1,
+        cost: 2,
         timeout: 0
       )
-
-      assert :ok = RateLimiter.await_slot(timeout: 0)
 
       error =
         assert_raise DeezerAPI.RateLimitError, fn ->

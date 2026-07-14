@@ -2,30 +2,31 @@ defmodule Delight.DeezerAPI.RateLimiter do
   @moduledoc """
   Global rate limiter for outgoing Deezer API requests.
 
-  Deezer throttles per IP address, so the window is shared by every caller in
+  Deezer throttles per IP address, so the bucket is shared by every caller in
   the node rather than scoped to a user or to a single request.
   """
 
   use Hammer,
-    backend: :ets,
-    algorithm: :sliding_window
+    backend: :atomic,
+    algorithm: :token_bucket
 
-  @window_key "deezer-api"
+  @bucket_key "deezer-api"
   @default_timeout :timer.seconds(5)
 
   @doc """
-  Claims a slot in the shared window, waiting for room if it is full.
+  Claims a slot in the shared bucket, waiting for it to refill if it is empty.
 
-  Blocks the calling process until the window has capacity and gives up after
+  Blocks the calling process until a token is available and gives up after
   `:timeout` milliseconds, which defaults to the configured `:timeout` (5s).
   """
   @spec await_slot(keyword()) :: :ok | {:error, {:rate_limited, non_neg_integer()}}
   def await_slot(options \\ []) do
     config = Application.get_env(:delight, __MODULE__, [])
 
-    window = %{
-      scale: Keyword.get(config, :scale, :timer.seconds(5)),
-      limit: Keyword.get(config, :limit, 50)
+    bucket = %{
+      refill_rate: Keyword.get(config, :refill_rate, 8),
+      capacity: Keyword.get(config, :capacity, 10),
+      cost: Keyword.get(config, :cost, 1)
     }
 
     timeout =
@@ -33,14 +34,14 @@ defmodule Delight.DeezerAPI.RateLimiter do
         Keyword.get(config, :timeout, @default_timeout)
       end)
 
-    await_slot_within(window, timeout)
+    await_slot_within(bucket, timeout)
   end
 
   @doc """
-  Clears all requests recorded in the current window.
+  Refills the bucket back to full capacity.
 
-  The window is node-wide state that outlives any single request: tests use
-  this to start from a known state.
+  The bucket is node-wide state that outlives any single request: tests use
+  this to start from a known level.
   """
   @spec reset() :: :ok
   def reset do
@@ -48,15 +49,15 @@ defmodule Delight.DeezerAPI.RateLimiter do
     :ok
   end
 
-  defp await_slot_within(window, timeout) do
-    case hit(@window_key, window.scale, window.limit) do
-      {:allow, _request_count} ->
+  defp await_slot_within(bucket, timeout) do
+    case hit(@bucket_key, bucket.refill_rate, bucket.capacity, bucket.cost) do
+      {:allow, _tokens_remaining} ->
         :ok
 
+      # A denied hit spends no token, so retrying costs the quota nothing.
       {:deny, retry_after_ms} when retry_after_ms <= timeout ->
-        wait_ms = max(retry_after_ms, 1)
-        Process.sleep(wait_ms)
-        await_slot_within(window, timeout - wait_ms)
+        Process.sleep(retry_after_ms)
+        await_slot_within(bucket, timeout - retry_after_ms)
 
       {:deny, retry_after_ms} ->
         {:error, {:rate_limited, retry_after_ms}}

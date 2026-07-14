@@ -14,10 +14,10 @@ default — see `config/config.exs`), after which the next request re-syncs the
 artist from Deezer: it picks up albums released in the meantime and drops any
 album Deezer no longer lists, keeping the local copy an exact mirror.
 
-Deezer throttles per IP address, so outgoing calls go through a shared sliding
-window (`Delight.DeezerAPI.RateLimiter`): at most 50 requests in any five-second
-period — see `config/config.exs`. A caller waits for the window to have capacity,
-and gives up after `:timeout` with a `429 Too Many Requests`.
+Deezer throttles per IP address (50 requests per 5 seconds), so outgoing calls go
+through a shared token bucket (`Delight.DeezerAPI.RateLimiter`): a burst of 10,
+then 8 requests per second — see `config/config.exs`. A caller waits for the
+bucket to refill, and gives up after `:timeout` with a `429 Too Many Requests`.
 
 ## Requirements
 

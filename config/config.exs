@@ -26,13 +26,14 @@ config :delight, DelightWeb.Endpoint,
   pubsub_server: Delight.PubSub,
   live_view: [signing_salt: "niGQUms1"]
 
-# Deezer throttles at 50 requests per 5 seconds per IP address. A sliding window
-# holds to that quota over *any* 5-second period, where a token bucket of the
-# same size would let a full burst be followed by the refill. A caller waits up
-# to `:timeout` for capacity before giving up.
+# Deezer throttles at 50 requests per 5 seconds per IP address. A token bucket
+# admits at most `capacity + refill_rate * seconds` over any period, so keep
+# `capacity + refill_rate * 5 <= 50`: a burst of 10, then 8 requests per second.
+# A caller waits up to `:timeout` for a token before giving up.
 config :delight, Delight.DeezerAPI.RateLimiter,
-  scale: :timer.seconds(5),
-  limit: 50,
+  refill_rate: 8,
+  capacity: 10,
+  cost: 1,
   timeout: :timer.seconds(5)
 
 # Configure Elixir's Logger
