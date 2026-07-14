@@ -35,7 +35,7 @@ Production requires the following environment variables:
 
 ## Getting started
 
-The easiest way to start the application and PostgreSQL is with Docker Compose:
+The easiest way to start the application and PostgreSQL (with migrations) is with Docker Compose:
 
 ```sh
 docker compose up
