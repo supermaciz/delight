@@ -24,6 +24,15 @@ bucket to refill, and gives up after `:timeout` with a `429 Too Many Requests`.
 * Elixir / Erlang (see `.tool-versions` or `mix.exs` for versions)
 * PostgreSQL running locally (defaults in `config/dev.exs`)
 
+### Environment variables
+
+Production requires the following environment variables:
+
+| Variable | Description |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection URL |
+| `SECRET_KEY_BASE` | Secret used to sign and encrypt application data |
+
 ## Getting started
 
 The easiest way to start the application and PostgreSQL is with Docker Compose:
@@ -76,8 +85,7 @@ Because different artists can share the same name, `data` is a list of matching
 artists. If no artist matches, the API responds with `404` and
 `{"errors": {"detail": "Not Found"}}`.
 
-The full API contract is documented in [`openapi.yaml`](openapi.yaml) (paste it
-into <https://editor.swagger.io> to browse it).
+The full API contract is documented in [`openapi.yaml`](openapi.yaml).
 
 ## Tests
 
